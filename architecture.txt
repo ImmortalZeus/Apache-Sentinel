@@ -1,0 +1,134 @@
+Apache Sentinel - System Architecture Documentation
+
+═══════════════════════════════════════════════════════════════════════════════
+OVERVIEW
+═══════════════════════════════════════════════════════════════════════════════
+
+The Apache Sentinel backend is an enterprise-grade security system that operates
+both a per-IP DoS detector and a coordinated DDoS detector. The system analyzes
+traffic patterns to differentiate between legitimate user surges (flash crowds)
+and malicious botnets, applying adaptive penalties to repeat offenders.
+
+Architecture: Layer 7 detection → Layer 3 mitigation (Windows Firewall)
+Data Source: Apache httpd logs piped to the backend via POST /log
+Platform: Windows Server (utilizes netsh advfirewall)
+Concurrency: Thread-safe firewall synchronization via Mutex
+
+═══════════════════════════════════════════════════════════════════════════════
+DATA PIPELINE
+═══════════════════════════════════════════════════════════════════════════════
+
+Apache httpd (piped logs)
+    ↓
+log-collector.ts → POST /log
+    ↓
+lineParser.run(line) → ILog
+    ↓
+    ├─→ ddosDetector.check(log)  [Layer 7 Analysis]
+    │       ├─→ checkGlobalRate()
+    │       ├─→ checkCoordinatedPattern()
+    │       └─→ checkSubnetVolume() → firewallService.blockSubnet()
+    │
+    └─→ dosDetector.check(ip)    [Per-IP Analysis]
+            └─→ firewallService.block(ip)
+
+═══════════════════════════════════════════════════════════════════════════════
+DETECTION STRATEGIES & ENTERPRISE UPGRADES
+═══════════════════════════════════════════════════════════════════════════════
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ STRATEGY 1: Global Volumetric Flood Detection                               │
+├─────────────────────────────────────────────────────────────────────────────┤
+│ Problem:  Massive volume from highly distributed sources overwhelms server  │
+│ Solution: Track total request count across ALL IPs in a sliding window      │
+│ Action:   Console alert (used for situational awareness)                    │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ STRATEGY 2: Coordinated Pattern & Flash Crowd Differentiation               │
+├─────────────────────────────────────────────────────────────────────────────┤
+│ Problem:  A legitimate flash crowd (e.g., course registration opening)      │
+│           looks identical to a credential-stuffing botnet if only counting  │
+│           distinct IPs.                                                     │
+│                                                                             │
+│ Solution: Context-Aware Mitigation using Success/Fail Ratios.               │
+│   - Tracks both total requests and error responses (HTTP >= 400).           │
+│   - A botnet yields a high error rate (e.g., 401 Unauthorized).             │
+│   - A flash crowd yields a high success rate (HTTP 200).                    │
+│   - Alert fires ONLY if the Error-to-Success ratio >= 80%.                  │
+│                                                                             │
+│ Action:   Logs [🚨 DDoS ALERT] for botnets or [Flash Crowd] for legit users │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ STRATEGY 3: Subnet Volumetric Tracking & Exponential Backoff TTL            │
+├─────────────────────────────────────────────────────────────────────────────┤
+│ Problem:  A static TTL creates a "yo-yo" effect where persistent botnets    │
+│           are unblocked, attack the server, and are blocked again rapidly.  │
+│                                                                             │
+│ Solution: Exponential Backoff Penalty System.                               │
+│   - Tracks aggregate volume per /24 subnet (IPv4).                          │
+│   - Applies escalating block durations for repeat offenders:                │
+│       * 1st Offense: 15 minutes                                             │
+│       * 2nd Offense: 1 hour                                                 │
+│       * 3rd Offense: 4 hours                                                │
+│       * 4th Offense: 16 hours (Capped at 24 hours)                          │
+│   - Offense counts reset after 24 hours of good behavior.                   │
+│                                                                             │
+│ Action:   Layer 3 Firewall block (firewallService.blockSubnet)              │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ STRATEGY 4: Per-IP Trust Degradation (dosDetector)                          │
+├─────────────────────────────────────────────────────────────────────────────┤
+│ Problem:  Single IPs launching sustained but low-rate DoS attacks.          │
+│ Solution: Trust scoring system with CPU-adaptive thresholds.                │
+│   - Uses a 3-window weighted anomaly score (0.5, 0.3, 0.2).                 │
+│   - Bursts are forgiven; sustained abuse depletes the Trust Score.          │
+│   - When CPU is high (>80%), thresholds dynamically tighten for suspicious  │
+│     IPs, while trusted IPs remain unaffected.                               │
+│                                                                             │
+│ Action:   Layer 3 Firewall block (indefinite)                               │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+═══════════════════════════════════════════════════════════════════════════════
+CRITICAL EDGE CASES & SYSTEM STABILITY
+═══════════════════════════════════════════════════════════════════════════════
+
+1. RACE CONDITIONS IN FIREWALL OPERATIONS
+   Problem: Concurrent IPs triggering block() cause overlapping netsh calls,
+            leading to missing rules or command failures.
+   Fix:     Mutex-wrapped syncRuleSafe() guarantees sequential firewall updates.
+
+2. MEMORY LEAK PREVENTION
+   - ddosDetector: setInterval() GC runs every 5 seconds to clear stale arrays.
+   - firewallService: cleanupOffenseHistory() runs hourly to purge 48-hour-old
+     subnet offense records, bounding memory growth during sustained attacks.
+
+3. STARTUP STATE SYNCHRONIZATION
+   - syncFromFirewall() parses existing Windows Firewall rules on boot.
+   - syncBlockedIPs() updates the in-memory detector state to match the OS.
+   - Ensures enforcement persists across backend restarts.
+
+═══════════════════════════════════════════════════════════════════════════════
+CONFIGURATION (src/config.json)
+═══════════════════════════════════════════════════════════════════════════════
+
+Environment-specific thresholds switch automatically based on NODE_ENV.
+
+development:
+  GLOBAL_RATE_THRESHOLD: 100
+  GLOBAL_RATE_WINDOW_MS: 10000
+  COORDINATED_DISTINCT_IP_THRESHOLD: 10
+  SUBNET_RATE_THRESHOLD: 50
+  SUBNET_PREFIX_LENGTH: 24
+
+production:
+  GLOBAL_RATE_THRESHOLD: 5000
+  GLOBAL_RATE_WINDOW_MS: 10000
+  COORDINATED_DISTINCT_IP_THRESHOLD: 50
+  SUBNET_RATE_THRESHOLD: 500
+  SUBNET_PREFIX_LENGTH: 24
+
+* Note: SUBNET_BLOCK_TTL_MS is no longer defined in config, as it is dynamically
+  calculated using the exponential backoff algorithm in firewall.service.ts.
