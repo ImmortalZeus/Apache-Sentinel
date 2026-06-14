@@ -1,3 +1,7 @@
 [submodule "backend"]
 	path = backend
 	url = https://github.com/ImmortalZeus/Apache-Sentinel-Backend.git
+
+[submodule "frontend"]
+	path = frontend
+	url = https://github.com/Alan310705/Apache-Sentinel-Frontend.git
