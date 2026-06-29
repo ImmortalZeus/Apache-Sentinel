@@ -1,0 +1,400 @@
+=============================================
+ Apache Sentinel — System Test Suite v3
+=============================================
+
+[OK] Server is in development mode (/debug/reset available)
+
+[INFO] Environment: development
+[INFO] DoS: THRESHOLD=120, WINDOW_MS=10000
+[INFO] DDoS: GLOBAL=100, COORD_IP=10, ERROR_RATIO=0.8, SUBNET=50
+[INFO] PANIC_DURATION=60000ms
+
+--- GROUP 1: DoS DETECTION (per-IP Trust Score) ---
+  [PASS] TC1 60 reqs, 50% of 120 | 
+  [PASS] TC2 180 reqs, 150% of 120 | 
+  [PASS] TC3 66x2 reqs, 11000ms gap | 
+  [PASS] TC14 90 reqs then 31000ms idle | state after burst: BLOCKED
+  [PASS] TC20 84+86 reqs, 11000ms gap | penalty cascade across window boundary
+  [PASS] TC21 83+1 reqs | 
+  [PASS] TC22 120 reqs over 20.7s | evasion confirmed — documented limitation
+  [PASS] TC23 84 reqs then 30s idle | 
+
+--- GROUP 2: DDoS DETECTION ---
+  [PASS] TC4 150 distinct-IP reqs | 
+  [PASS] TC5 50 distinct-IP reqs, 50% of 100 | 
+  [PASS] TC6a 15 IPs, error=50% | 
+  [PASS] TC6b 15 IPs, error=90% | 
+  [PASS] TC6 75 reqs from 60.0.0.0/24 | 
+
+--- GROUP 3: DEFENSE RESPONSE ---
+  [PASS] TC8 Panic Mode active | 
+  [INFO] TC18 waiting 75000ms for panic deactivation (10s check interval)...
+  [PASS] TC18 Wait 75000ms after trigger | 
+  [PASS] TC9 Send from already-blocked IP | 
+  [PASS] TC16 POST /api/firewall/block 10.55.55.55 | 
+  [PASS] TC17 POST /api/firewall/unblock 10.55.55.55 | 
+  [PASS] TC19 Two back-to-back subnet blocks | 
+
+--- GROUP 4: INTEGRATION ---
+  [PASS] TC7 120 → 999 → 120 | 
+  [PASS] TC11 POST /log then poll /api/logs | 
+  [PASS] TC12 Required fields present | 
+  [PASS] TC13 data[] + pagination | 
+  [PASS] TC15 50 reqs burst then 11s wait | 
+
+=============================================
+ RESULTS: 24 PASSED | 0 FAILED/PARTIAL | Total: 24
+=============================================
+
+Per-test summary:
+--------------------------------------------------------------------------------------------------------------
+TC                   Verdict              Wall(ms)             RPS                  Blocked              Notes               
+--------------------------------------------------------------------------------------------------------------
+TC1                  PASS                 57                   1053                 0                    60 reqs, 50% of 120 
+TC2                  PASS                 123                  1463                 1                    180 reqs, 150% of 12
+TC3                  PASS                 11092                -                    0                    66x2 reqs, 11000ms g
+TC14                 PASS                 -                    -                    -                    state after burst: B
+TC20                 PASS                 11238                -                    -                    penalty cascade acro
+TC21                 PASS                 100                  -                    -                    83+1 reqs           
+TC22                 PASS                 20704                6                    0                    evasion confirmed — 
+TC23                 PASS                 -                    -                    -                    84 reqs then 30s idl
+TC4                  PASS                 118                  1271                 -                    150 distinct-IP reqs
+TC5                  PASS                 26                   1923                 -                    50 distinct-IP reqs,
+TC6a                 PASS                 7                    2143                 0                    15 IPs, error=50%   
+TC6b                 PASS                 15                   1000                 11                   15 IPs, error=90%   
+TC6                  PASS                 49                   1531                 1                    75 reqs from 60.0.0.
+TC8                  PASS                 -                    -                    -                    Panic Mode active   
+TC18                 PASS                 -                    -                    -                    Wait 75000ms after t
+TC9                  PASS                 -                    -                    -                    Send from already-bl
+TC16                 PASS                 -                    -                    -                    POST /api/firewall/b
+TC17                 PASS                 -                    -                    -                    POST /api/firewall/u
+TC19                 PASS                 -                    -                    -                    Two back-to-back sub
+TC7                  PASS                 -                    -                    -                    120 → 999 → 120     
+TC11                 PASS                 -                    -                    -                    POST /log then poll 
+TC12                 PASS                 -                    -                    -                    Required fields pres
+TC13                 PASS                 -                    -                    -                    data[] + pagination 
+TC15                 PASS                 -                    -                    -                    50 reqs burst then 1
+--------------------------------------------------------------------------------------------------------------
+
+[JSON_RESULTS_BEGIN]
+{
+  "env": "development",
+  "passCount": 24,
+  "failCount": 0,
+  "total": 24,
+  "results": [
+    {
+      "tc": "TC1",
+      "category": "DoS TN",
+      "scenario": "60 reqs, 50% of 120",
+      "verdict": "PASS",
+      "metrics": {
+        "wallMs": 57,
+        "rps": 1052.6315789473683,
+        "blockedIPs": 0,
+        "cpu": 0,
+        "threshold": 120
+      },
+      "notes": ""
+    },
+    {
+      "tc": "TC2",
+      "category": "DoS TP",
+      "scenario": "180 reqs, 150% of 120",
+      "verdict": "PASS",
+      "metrics": {
+        "wallMs": 123,
+        "rps": 1463.4146341463415,
+        "blockedIPs": 1,
+        "target": "10.0.0.2",
+        "cpu": 0
+      },
+      "notes": ""
+    },
+    {
+      "tc": "TC3",
+      "category": "DoS Sliding Window",
+      "scenario": "66x2 reqs, 11000ms gap",
+      "verdict": "PASS",
+      "metrics": {
+        "wallMs": 11092,
+        "blockedIPs": 0,
+        "cpu": 0.03403783297033369
+      },
+      "notes": ""
+    },
+    {
+      "tc": "TC14",
+      "category": "DoS Trust Recovery",
+      "scenario": "90 reqs then 31000ms idle",
+      "verdict": "PASS",
+      "metrics": {
+        "blockedBefore": 1,
+        "blockedAfter": 1,
+        "cpu": 0.021852386490118225
+      },
+      "notes": "state after burst: BLOCKED"
+    },
+    {
+      "tc": "TC20",
+      "category": "DoS Penalty Cascade Across Windows",
+      "scenario": "84+86 reqs, 11000ms gap",
+      "verdict": "PASS",
+      "metrics": {
+        "wallMs": 11238,
+        "blockedBefore": 0,
+        "blockedAfter": 1,
+        "target": "10.0.0.20"
+      },
+      "notes": "penalty cascade across window boundary"
+    },
+    {
+      "tc": "TC21",
+      "category": "DoS Boundary 83/84",
+      "scenario": "83+1 reqs",
+      "verdict": "PASS",
+      "metrics": {
+        "wallMs": 100,
+        "blockedAfter83": 0,
+        "blockedAfter84": 0,
+        "note": "Penalty expected (trust 50→35) but not block (< 20)"
+      },
+      "notes": ""
+    },
+    {
+      "tc": "TC22",
+      "category": "DoS Slow-Drip Evasion",
+      "scenario": "120 reqs over 20.7s",
+      "verdict": "PASS",
+      "metrics": {
+        "wallMs": 20704,
+        "rps": 5.795981452859351,
+        "blockedIPs": 0,
+        "note": "Window rotation dilutes weighted anomaly below 0.7"
+      },
+      "notes": "evasion confirmed — documented limitation"
+    },
+    {
+      "tc": "TC23",
+      "category": "DoS Trust Recovery (tick)",
+      "scenario": "84 reqs then 30s idle",
+      "verdict": "PASS",
+      "metrics": {
+        "blockedBefore": 0,
+        "blockedAfter": 0,
+        "note": "Trust recovers via tick() reward when anomaly < 0.35"
+      },
+      "notes": ""
+    },
+    {
+      "tc": "TC4",
+      "category": "DDoS Global Panic TP",
+      "scenario": "150 distinct-IP reqs",
+      "verdict": "PASS",
+      "metrics": {
+        "wallMs": 118,
+        "rps": 1271.186440677966,
+        "statsStatus": 503,
+        "configStatus": 200
+      },
+      "notes": ""
+    },
+    {
+      "tc": "TC5",
+      "category": "DDoS Global TN",
+      "scenario": "50 distinct-IP reqs, 50% of 100",
+      "verdict": "PASS",
+      "metrics": {
+        "wallMs": 26,
+        "rps": 1923.076923076923,
+        "panicMode": false
+      },
+      "notes": ""
+    },
+    {
+      "tc": "TC6a",
+      "category": "DDoS Flash Crowd TN",
+      "scenario": "15 IPs, error=50%",
+      "verdict": "PASS",
+      "metrics": {
+        "wallMs": 7,
+        "rps": 2142.8571428571427,
+        "blockedIPs": 0,
+        "cpu": 0
+      },
+      "notes": ""
+    },
+    {
+      "tc": "TC6b",
+      "category": "DDoS Botnet TP",
+      "scenario": "15 IPs, error=90%",
+      "verdict": "PASS",
+      "metrics": {
+        "wallMs": 15,
+        "rps": 1000,
+        "blockedIPs": 11,
+        "targets": [
+          "50.0.0.1",
+          "50.0.0.2",
+          "50.0.0.3",
+          "50.0.0.4",
+          "50.0.0.5"
+        ],
+        "cpu": 0
+      },
+      "notes": ""
+    },
+    {
+      "tc": "TC6",
+      "category": "DDoS Subnet TP",
+      "scenario": "75 reqs from 60.0.0.0/24",
+      "verdict": "PASS",
+      "metrics": {
+        "wallMs": 49,
+        "rps": 1530.612244897959,
+        "blockedIPs": 1,
+        "subnetBlocks": [
+          "60.0.0.0/24"
+        ]
+      },
+      "notes": ""
+    },
+    {
+      "tc": "TC8",
+      "category": "Load Shedding",
+      "scenario": "Panic Mode active",
+      "verdict": "PASS",
+      "metrics": {
+        "statsStatus": 503,
+        "configStatus": 200
+      },
+      "notes": ""
+    },
+    {
+      "tc": "TC18",
+      "category": "Panic Auto-Deactivation",
+      "scenario": "Wait 75000ms after trigger",
+      "verdict": "PASS",
+      "metrics": {
+        "panicActiveBefore": true,
+        "panicModeAfter": false,
+        "statsStatusAfter": 200,
+        "waitMs": 75000
+      },
+      "notes": ""
+    },
+    {
+      "tc": "TC9",
+      "category": "Blocked IP Bypass",
+      "scenario": "Send from already-blocked IP",
+      "verdict": "PASS",
+      "metrics": {
+        "blockedBefore": 1,
+        "followUpStatus": 200
+      },
+      "notes": ""
+    },
+    {
+      "tc": "TC16",
+      "category": "Manual Block API",
+      "scenario": "POST /api/firewall/block 10.55.55.55",
+      "verdict": "PASS",
+      "metrics": {
+        "blockStatus": 200,
+        "foundInRules": true
+      },
+      "notes": ""
+    },
+    {
+      "tc": "TC17",
+      "category": "Manual Unblock API",
+      "scenario": "POST /api/firewall/unblock 10.55.55.55",
+      "verdict": "PASS",
+      "metrics": {
+        "unblockStatus": 200,
+        "stillInRules": false
+      },
+      "notes": ""
+    },
+    {
+      "tc": "TC19",
+      "category": "Subnet TTL Backoff",
+      "scenario": "Two back-to-back subnet blocks",
+      "verdict": "PASS",
+      "metrics": {
+        "firstFound": true,
+        "afterSecondCount": 1,
+        "note": "TTL value not exposed via API; verify escalation in server console (count 1→2→4→...)"
+      },
+      "notes": ""
+    },
+    {
+      "tc": "TC7",
+      "category": "Config Hot-Reload",
+      "scenario": "120 → 999 → 120",
+      "verdict": "PASS",
+      "metrics": {
+        "patchStatus": 200,
+        "valueAfter": 999
+      },
+      "notes": ""
+    },
+    {
+      "tc": "TC11",
+      "category": "DB Logging",
+      "scenario": "POST /log then poll /api/logs",
+      "verdict": "PASS",
+      "metrics": {
+        "found": true,
+        "flushed": true,
+        "totalBefore": 64129,
+        "totalAfter": 64130
+      },
+      "notes": ""
+    },
+    {
+      "tc": "TC12",
+      "category": "API Contract /api/stats",
+      "scenario": "Required fields present",
+      "verdict": "PASS",
+      "metrics": {
+        "missing": []
+      },
+      "notes": ""
+    },
+    {
+      "tc": "TC13",
+      "category": "API Contract /api/firewall/rules",
+      "scenario": "data[] + pagination",
+      "verdict": "PASS",
+      "metrics": {
+        "status": 200
+      },
+      "notes": ""
+    },
+    {
+      "tc": "TC15",
+      "category": "Adaptive Threshold",
+      "scenario": "50 reqs burst then 11s wait",
+      "verdict": "PASS",
+      "metrics": {
+        "baselineThreshold": 120,
+        "afterLoadThreshold": 140,
+        "cpuBaseline": 0,
+        "cpuAfterLoad": 0.04025015985901215
+      },
+      "notes": ""
+    }
+  ],
+  "config": {
+    "DOS_THRESHOLD": 120,
+    "DOS_WINDOW": 10000,
+    "GLOBAL_THRESHOLD": 100,
+    "COORDINATED_IP": 10,
+    "ERROR_RATIO": 0.8,
+    "SUBNET_THRESHOLD": 50,
+    "PANIC_DURATION": 60000
+  }
+}
+[JSON_RESULTS_END]
+
