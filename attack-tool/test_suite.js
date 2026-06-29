@@ -525,7 +525,7 @@ async function runTests() {
         const statsAfter = await snapshotStats();
         const statsAfterRes = await httpGet('/api/stats');
         const verdict = statsAfter && statsAfter.panicMode === false && statsAfterRes.status !== 503 ? 'PASS' : 'FAIL';
-        record('TC18', 'Panic Auto-Deactivation', `Wait ${waitMs}ms after trigger`, verdict, {
+        record('TC15', 'Panic Auto-Deactivation', `Wait ${waitMs}ms after trigger`, verdict, {
             panicActiveBefore: panicActive, panicModeAfter: statsAfter?.panicMode,
             statsStatusAfter: statsAfterRes.status,
             waitMs,
@@ -540,7 +540,7 @@ async function runTests() {
         const pre = await snapshotStats();
         const followUp = await postLog(makeLogLine('10.99.99.1'));
         const verdict = pre.blockedCount > 0 && followUp.status === 200 ? 'PASS' : 'FAIL';
-        record('TC9', 'Blocked IP Bypass', 'Send from already-blocked IP', verdict, {
+        record('TC16', 'Blocked IP Bypass', 'Send from already-blocked IP', verdict, {
             blockedBefore: pre.blockedCount, followUpStatus: followUp.status,
         });
     }
@@ -554,7 +554,7 @@ async function runTests() {
         const rules = await snapshotRules();
         const found = rules.items.find(r => r.target === targetIp);
         const verdict = blockRes.status === 200 && found ? 'PASS' : 'FAIL';
-        record('TC16', 'Manual Block API', `POST /api/firewall/block ${targetIp}`, verdict, {
+        record('TC17', 'Manual Block API', `POST /api/firewall/block ${targetIp}`, verdict, {
             blockStatus: blockRes.status, foundInRules: !!found,
         });
     }
@@ -568,7 +568,7 @@ async function runTests() {
         const rules = await snapshotRules();
         const stillThere = rules.items.find(r => r.target === targetIp);
         const verdict = unblockRes.status === 200 && !stillThere ? 'PASS' : 'FAIL';
-        record('TC17', 'Manual Unblock API', `POST /api/firewall/unblock ${targetIp}`, verdict, {
+        record('TC18', 'Manual Unblock API', `POST /api/firewall/unblock ${targetIp}`, verdict, {
             unblockStatus: unblockRes.status, stillInRules: !!stillThere,
         });
     }
@@ -611,7 +611,7 @@ async function runTests() {
         const after = (await httpGet('/api/config')).data.dos.THRESHOLD;
         await httpPatch('/api/config', { THRESHOLD: orig });
         const verdict = patchRes.status === 200 && after === 999 ? 'PASS' : 'FAIL';
-        record('TC7', 'Config Hot-Reload', `${orig} → 999 → ${orig}`, verdict, {
+        record('TC20', 'Config Hot-Reload', `${orig} → 999 → ${orig}`, verdict, {
             patchStatus: patchRes.status, valueAfter: after,
         });
     }
@@ -651,7 +651,7 @@ async function runTests() {
         // Pass if either condition is met: flush happened (count increased)
         // OR the exact test path was found in the most recent 50 logs.
         const passed = found || flushed;
-        record('TC11', 'DB Logging', `POST /log then poll /api/logs`, passed ? 'PASS' : 'FAIL', {
+        record('TC21', 'DB Logging', `POST /log then poll /api/logs`, passed ? 'PASS' : 'FAIL', {
             found, flushed, totalBefore, totalAfter: (await snapshotStats())?.totalLogs,
         });
     }
@@ -663,14 +663,14 @@ async function runTests() {
         const required = ['totalLogsAnalyzed', 'activeBlockedIps', 'currentCpuUsage', 'isDdosPanicMode', 'trafficHistory'];
         const missing = required.filter(k => !(k in (r.data || {})));
         const verdict = r.status === 200 && missing.length === 0 ? 'PASS' : 'FAIL';
-        record('TC12', 'API Contract /api/stats', 'Required fields present', verdict, { missing });
+        record('TC22', 'API Contract /api/stats', 'Required fields present', verdict, { missing });
     }
 
     // TC13: /api/firewall/rules contract
     {
         const r = await httpGet('/api/firewall/rules?limit=10');
         const ok = r.status === 200 && Array.isArray(r.data?.data) && r.data.pagination;
-        record('TC13', 'API Contract /api/firewall/rules', 'data[] + pagination', ok ? 'PASS' : 'FAIL', { status: r.status });
+        record('TC23', 'API Contract /api/firewall/rules', 'data[] + pagination', ok ? 'PASS' : 'FAIL', { status: r.status });
     }
 
     // TC15: Adaptive threshold under load (best-effort)
@@ -692,7 +692,7 @@ async function runTests() {
         await sleep(11000);
         const afterLoad = await snapshotStats();
         const verdict = (baselineThreshold != null && afterLoad?.globalThreshold != null) ? 'PASS' : 'PARTIAL';
-        record('TC15', 'Adaptive Threshold', `${cpuLoad} reqs burst then 11s wait`, verdict, {
+        record('TC24', 'Adaptive Threshold', `${cpuLoad} reqs burst then 11s wait`, verdict, {
             baselineThreshold, afterLoadThreshold: afterLoad?.globalThreshold,
             cpuBaseline: baseline?.cpu, cpuAfterLoad: afterLoad?.cpu,
         });
